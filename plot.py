@@ -43,7 +43,7 @@ def read_gpx_files(gpxdir):
         counter+= 1
         if counter > 50:
             continue
-            
+
 
 def plot_osm_map(tracks, output):
     m = folium.Map(zoom_start=15)
@@ -51,8 +51,11 @@ def plot_osm_map(tracks, output):
     folium.TileLayer('stamentoner').add_to(m)
     folium.TileLayer('stamenterrain').add_to(m)
     allpoints = []
+    bounds = []
+
     for track in tracks:
         thistrack = []
+
         print("Current number of points: ", len(allpoints))
         for point in track:
             if is_float_try(point.get("latitudedegrees")) and is_float_try(point.get("longitudedegrees")):
@@ -60,10 +63,21 @@ def plot_osm_map(tracks, output):
                 allpoints.append((point.get("latitudedegrees"), point.get("longitudedegrees"), 0.05))
         folium.PolyLine(thistrack, color="red", weight=2, opacity = 0.1, smoothFactor=4.0).add_to(m)
 
+        lats = [float(point.get('latitudedegrees')) for point in track]
+        longs = [float(point.get('longitudedegrees')) for point in track]
+        swne = [min(lats), min(longs), max(lats), max(longs)]
+        bounds.append(swne)
+
     print("Total number of points: ", len(allpoints))
     
     HeatMap(allpoints, gradient={0.05: 'blue', 0.4: 'lime', 0.7: 'yellow', 1: 'red'}, radius=8, blur=10).add_to(folium.FeatureGroup(name='Heat Map').add_to(m))
     folium.LayerControl().add_to(m)
+
+    s = min(bounds, key=lambda x: x[0])[0]
+    w = min(bounds, key=lambda x: x[1])[1]
+    n = max(bounds, key=lambda x: x[2])[2]
+    e = max(bounds, key=lambda x: x[3])[3]
+    m.fit_bounds([[s, w], [ n, e]])
 
     m.save(output)
 
