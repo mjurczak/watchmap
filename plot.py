@@ -4,14 +4,13 @@ import argparse
 import subprocess
 import os
 import ggps
-
-from xml.dom import minidom
 import matplotlib
 import matplotlib.cm as cm
 import folium
+
+from geopy.distance import geodesic
 from folium import plugins
 from folium.plugins import HeatMap
-import xml.etree.ElementTree as et
 
 def is_float_try(str):
     try:
@@ -44,6 +43,17 @@ def read_gpx_files(gpxdir):
         if counter > 50:
             continue
 
+def reduce_track(track_data):
+    new_track = []
+    new_track.append(track_data[0])
+
+    for destination in track_data[1::]:
+        distance = geodesic(new_track[-1], destination).meters
+        if (distance > 15):
+            new_track.append(destination)
+
+    return new_track
+
 
 def plot_osm_map(tracks, output):
     m = folium.Map(zoom_start=15)
@@ -60,16 +70,20 @@ def plot_osm_map(tracks, output):
         for point in track:
             if is_float_try(point.get("latitudedegrees")) and is_float_try(point.get("longitudedegrees")):
                 thistrack.append((float(point.get("latitudedegrees")), float(point.get("longitudedegrees"))))
-                allpoints.append((point.get("latitudedegrees"), point.get("longitudedegrees"), 0.05))
-        folium.PolyLine(thistrack, color="red", weight=2, opacity = 0.1, smoothFactor=4.0).add_to(m)
+        reduced_track = reduce_track(thistrack)
+        folium.PolyLine(reduced_track, color="red", weight=2, opacity = 0.051, smoothFactor=4.0).add_to(m)
 
-        lats = [float(point.get('latitudedegrees')) for point in track]
-        longs = [float(point.get('longitudedegrees')) for point in track]
+        for point in reduced_track:
+            allpoints.append((point[0], point[1], 0.05))
+        print("Original track points: ", len(thistrack), " Reduced to: ", len(reduced_track))
+
+        lats = [point[0] for point in reduced_track]
+        longs = [point[1] for point in reduced_track]
         swne = [min(lats), min(longs), max(lats), max(longs)]
         bounds.append(swne)
 
     print("Total number of points: ", len(allpoints))
-    
+
     HeatMap(allpoints, gradient={0.05: 'blue', 0.4: 'lime', 0.7: 'yellow', 1: 'red'}, radius=8, blur=10).add_to(folium.FeatureGroup(name='Heat Map').add_to(m))
     folium.LayerControl().add_to(m)
 
